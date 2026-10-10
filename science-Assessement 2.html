@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#e91e63">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Sistem Kuiz Sains</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Roboto,system-ui,sans-serif;background:#f5f7fa;color:#333;line-height:1.5;}
+  .app{max-width:1400px;margin:0 auto;background:#fff;min-height:100vh;display:flex;flex-direction:column;}
+  header{background:#fff;border-bottom:2px solid #fce4ec;padding:16px 24px;}
+  .header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  h1{font-size:1.4rem;color:#ad1457;font-weight:600;}
+  h1 span{font-size:.85rem;color:#888;font-weight:400;}
+  .timer{background:#fce4ec;color:#ad1457;padding:8px 16px;border-radius:20px;font-weight:600;font-size:1.1rem;}
+  .progress-container{width:100%;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;margin-top:12px;}
+  .progress-bar{height:100%;width:0;background:linear-gradient(90deg,#f06292,#e91e63);transition:width .3s;}
+  .progress-text{font-size:.85rem;color:#888;text-align:right;margin-top:6px;}
+  main{display:flex;flex:1;overflow:hidden;}
+  .question-area{flex:1;padding:24px;overflow-y:auto;max-height:calc(100vh - 130px);}
+  .nav-area{width:300px;background:#fafafa;border-left:1px solid #eee;padding:20px;overflow-y:auto;max-height:calc(100vh - 130px);display:flex;flex-direction:column;}
+  .nav-area h2{font-size:1.05rem;margin-bottom:14px;color:#555;}
+  .nav-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;}
+  .nav-btn{aspect-ratio:1;border:1px solid #ddd;background:#fff;border-radius:8px;font-weight:600;color:#555;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;transition:.2s;}
+  .nav-btn:hover{border-color:#f06292;background:#fce4ec;}
+  .nav-btn.current{background:#e91e63;color:#fff;border-color:#e91e63;}
+  .nav-btn.answered{background:#f8bbd0;color:#ad1457;border-color:#f8bbd0;}
+  .nav-btn.unanswered{background:#fff;color:#999;border-color:#eee;}
+  .legend{display:flex;gap:10px;font-size:.72rem;color:#888;margin-top:8px;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:4px;}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .legend .current{background:#e91e63;}
+  .legend .answered{background:#f8bbd0;}
+  .legend .unanswered{background:#fff;border:1px solid #ddd;}
+  .submit-btn{background:#e91e63;color:#fff;border:none;padding:14px;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:auto;}
+  .submit-btn:hover{background:#c2185b;}
+  .question-header{font-size:.9rem;color:#888;margin-bottom:8px;}
+  .question-text{margin-bottom:20px;}
+  .question-text .my{font-size:1.15rem;font-weight:600;color:#222;margin-bottom:6px;}
+  .question-text .en{font-size:.95rem;color:#666;font-style:italic;}
+  .diagram{background:#f9f9f9;border:1px dashed #ddd;border-radius:8px;padding:12px;text-align:center;margin-bottom:20px;}
+  .diagram img{max-width:100%;height:auto;}
+  .options{display:flex;flex-direction:column;gap:12px;}
+  .option{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:2px solid #eee;border-radius:12px;cursor:pointer;background:#fff;transition:.2s;}
+  .option:hover{border-color:#f8bbd0;background:#fff9fb;}
+  .option.selected{border-color:#e91e63;background:#fce4ec;}
+  .option-label{width:32px;height:32px;background:#f5f5f5;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#555;flex-shrink:0;}
+  .option.selected .option-label{background:#e91e63;color:#fff;}
+  .option-text{flex:1;}
+  .option-text .my{font-weight:500;color:#333;}
+  .option-text .en{font-size:.85rem;color:#777;font-style:italic;}
+  .option-text img{max-width:100%;height:auto;display:block;margin:0 auto;}
+  .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;z-index:1000;}
+  .modal.show{display:flex;}
+  .modal-content{background:#fff;border-radius:16px;padding:24px;max-width:850px;width:92%;max-height:88vh;overflow-y:auto;}
+  .modal-content h2{color:#ad1457;margin-bottom:16px;}
+  .close-btn{background:#e91e63;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:1rem;cursor:pointer;margin-top:16px;}
+  .btn-primary{background:#e91e63;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:1rem;cursor:pointer;}
+  .btn-primary:hover{background:#c2185b;}
+  .btn-secondary{background:#fff;color:#e91e63;border:2px solid #e91e63;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:.9rem;}
+  .btn-secondary:hover{background:#fce4ec;}
+  .btn-danger{background:#fff;color:#c62828;border:2px solid #c62828;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:.9rem;}
+  .form-group{margin-bottom:18px;}
+  .form-group label{display:block;margin-bottom:6px;font-weight:600;color:#555;font-size:.9rem;}
+  .form-group select,.form-group input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;background:#fff;}
+  .form-group select:focus,.form-group input:focus{outline:none;border-color:#e91e63;}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.85rem;}
+  th,td{border:1px solid #eee;padding:8px;text-align:left;}
+  th{background:#fce4ec;color:#ad1457;font-weight:600;}
+  tr:nth-child(even){background:#fafafa;}
+  .result-card{flex:1;min-width:110px;background:#fce4ec;border-radius:12px;padding:14px;text-align:center;}
+  .result-card .number{font-size:1.8rem;font-weight:700;color:#ad1457;}
+  .result-card .label{font-size:.8rem;color:#666;}
+  .review-item{border-bottom:1px solid #eee;padding:12px 0;}
+  .review-item .q{font-weight:600;margin-bottom:4px;}
+  .review-item .ans{font-size:.9rem;}
+  .review-item .correct{color:#2e7d32;}
+  .review-item .wrong{color:#c62828;}
+  .review-item .explanation{font-size:.85rem;color:#666;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;}
+  .hidden{display:none!important;}
+  .teacher-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  @media (max-width:768px){
+    main{flex-direction:column;}
+    .nav-area{width:100%;border-left:none;border-top:1px solid #eee;max-height:none;}
+    .nav-grid{grid-template-columns:repeat(8,1fr);}
+    .question-area{max-height:none;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="startScreen" style="padding:40px 24px;max-width:520px;margin:0 auto;">
+    <h1 style="color:#ad1457;margin-bottom:8px;">Kuiz Sains Online</h1>
+    <p style="color:#888;margin-bottom:28px;font-size:.9rem;">Kuiz Sains Online · Latihan</p>
+    <div class="form-group">
+      <label>Kelas</label>
+      <select id="classSelect" onchange="updateStudentList()">
+        <option value="">-- Pilih Kelas --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Nama</label>
+      <select id="studentSelect">
+        <option value="">-- Sila pilih kelas dahulu --</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="startExam()" style="width:100%;padding:14px;">Mula</button>
+    <button class="btn-secondary" onclick="showTeacherLogin()" style="width:100%;margin-top:12px;">Panel Guru</button>
+    <p style="color:#aaa;font-size:.78rem;margin-top:20px;text-align:center;">
+      Bank soalan dan gambar diletakkan dalam folder yang sama, sistem akan baca secara automatik.
+    </p>
+  </div>
+
+  <div id="examScreen" class="hidden">
+    <header>
+      <div class="header-top">
+        <h1>Kuiz Sains <span id="studentInfoDisplay"></span></h1>
+        <div class="timer">⏱ <span id="timer">60:00</span></div>
+      </div>
+      <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-text"><span id="answeredCount">0</span>/<span id="totalCount">40</span> Dijawab</div>
+    </header>
+    <main>
+      <section class="question-area" id="questionArea"></section>
+      <aside class="nav-area">
+        <h2>Navigasi Soalan</h2>
+        <div class="nav-grid" id="navGrid"></div>
+        <button id="submitBtn" class="submit-btn">Hantar Kertas</button>
+        <div class="legend">
+          <span><i class="current"></i>Semasa</span>
+          <span><i class="answered"></i>Dijawab</span>
+          <span><i class="unanswered"></i>Belum Dijawab</span>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal" id="resultModal">
+    <div class="modal-content">
+      <h2>Keputusan Kuiz</h2>
+      <div id="resultSummary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+      <div id="reviewList"></div>
+      <button class="close-btn" onclick="closeModal('resultModal')">Tutup</button>
+    </div>
+  </div>
+
+  <div class="modal" id="teacherModal">
+    <div class="modal-content">
+      <h2>Panel Pengurusan Guru</h2>
+      <div id="teacherLogin">
+        <div class="form-group">
+          <label>Kata Laluan</label>
+          <input type="password" id="teacherPass" placeholder="Default: 123456" onkeydown="if(event.key==='Enter')teacherLogin()">
+        </div>
+        <button class="btn-primary" onclick="teacherLogin()">Log Masuk</button>
+      </div>
+      <div id="teacherPanel" class="hidden">
+        <div class="teacher-actions">
+          <button class="btn-secondary" onclick="exportExcel()">📊 Eksport Markah Excel</button>
+          <button class="btn-secondary" onclick="document.getElementById('uploadJson').click()">📁 Muat Naik Bank Soalan JSON</button>
+          <input type="file" id="uploadJson" accept=".json" style="display:none" onchange="uploadQuestions(event)">
+          <button class="btn-secondary" onclick="document.getElementById('uploadStudents').click()">👥 Muat Naik Senarai Nama (Name list.xlsx)</button>
+          <input type="file" id="uploadStudents" accept=".xlsx,.xls" style="display:none" onchange="uploadStudents(event)">
+          <button class="btn-danger" onclick="clearRecords()">🗑 Kosongkan Markah</button>
+          <button class="btn-secondary" onclick="resetQuestions()">↺ Pulihkan Bank Soalan Asal</button>
+        </div>
+        <div id="recordsTable"></div>
+        <button class="close-btn" onclick="closeModal('teacherModal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const IMAGE_BASE = "KEDAH K1 2026";
+
+/* ===== Senarai nama 5B (hardcoded supaya semua peranti boleh baca) ===== */
+const defaultStudentsData = {
+  "5B": [
+    "ABUN ANAK LAMPONG",
+    "ADDESON FARRELL ANAK CHARLES",
+    "ALVIN SIA CHEONG XUAN",
+    "AMBROSSE SAGING ANAK CASSIDY",
+    "ANDRIAN HAZELL ANAK ANTHONY",
+    "ANGELLYN ALICE ANAK HONG SONG SONG",
+    "ANNESCEY AVYNNE MAYANG ANAK AUGUSTIN LANG",
+    "BENEDICT UNAN ANAK RICHARD",
+    "BENTLEY LIMBING ANAK FRANCIS",
+    "CASSENRA ALISSA ANAK TICHA",
+    "CONNEN CHAI KAO ZHEN",
+    "DEXTER AARON ANAK BIAI",
+    "ELLRIECO HILSAR BIN HILARY",
+    "ELVIN ADRIAN ANAK JAWAN",
+    "ELYANA ESY ANAK ZEAKY",
+    "FELLIXIUS CARRENIUS MAXZ ANAK SIBA",
+    "FENNYSIA ANAK FRANCIS",
+    "GWENN AUDREYNA ANAK BRIAN DANA",
+    "JULIUS FEDREES ANAK EPOL",
+    "KEANNU NGIEN CHAW LONG",
+    "LIIVIANA HECTOR ANAK LOUIS",
+    "LIYANA ANAK ANAN",
+    "MACQUINNES LANDA ANAK RONALD JANANG",
+    "MARIA ANGELYANA UMANG ANAK DONNY",
+    "MARIA NASHA CLARA ANAK MARTIN",
+    "MARQUES GARRETH NADING ANAK GALAU",
+    "MERALDAMEL ANAK ALAM",
+    "PERRY SHANLEY ANAK DANSTAN",
+    "PRISCENDA KUYIAK PARAN",
+    "PRISSCALYNA ANAK LOUIS",
+    "RACHAEL ANAK REMANG",
+    "RIVALDO CLARKSON NGALI AK JOSEPH",
+    "ROGER ANAK PETER",
+    "ROSALIA KELINAH ANAK WINSTON",
+    "SHAKIRA SAFINA ANAK DANNEIL BENJAMIN",
+    "TIFRIANASON THARISSYA ANAK JACKSON",
+    "TRISTEN TANJUNG ANAK FRANKY",
+    "VANNESSA DELVINNA ANAK JOHNATAN HART",
+    "VICTORIA VANNESSA ANAK GABRIEL"
+  ]
+};
+
+let studentsData = {};
+
+/* ===== Bank Soalan (ringkas — 40 soalan) ===== */
+const defaultQuestions = [
+  { my: "Antara yang berikut, peralatan perlindungan diri manakah yang sesuai untuk membersihkan pakaian dengan segera apabila terkena bahan kimia?", en: "Which of the following personal protective equipment is suitable for cleaning clothing immediately when it comes into contact with chemical substances?", options: [{my:"Pembilas mata",en:"Eyewash station"},{my:"Penyiram kecemasan",en:"Safety shower"},{my:"Pemakaian baju makmal",en:"Wearing a lab coat"},{my:"Pemakaian sarung tangan",en:"Wearing gloves"}], answer:1, explanation:"Safety shower is used to rinse the body and clothing immediately." },
+  { my: "Rajah 1 menunjukkan keadaan seorang mangsa di tepi kolam renang. Apakah tanda mangsa tersebut tidak bernafas?", en: "Diagram 1 shows the condition of a victim at the side of a swimming pool. What is the sign the victim is not breathing?", diagram:'<img src="images/rajah1.png" style="max-width:100%" alt="Rajah 1">', options: [{my:"Batuk",en:"Cough"},{my:"Tidak boleh bercakap",en:"Unable to speak"},{my:"Pergerakan dada tidak kelihatan",en:"No visible chest movement"},{my:"Memegang leher dengan kedua-dua tangan",en:"Holding the neck with both hands"}], answer:2, explanation:"No visible chest movement indicates the victim is not breathing." },
+  { my: "Maklumat berikut menunjukkan Indeks Jisim Badan (BMI) seorang individu. BMI = 29.9 kg m⁻². Apakah risiko terhadap kesihatan?", en: "BMI = 29.9 kg m⁻². What is the health risk?", diagram:'<img src="images/rajah2.png" style="max-width:100%">', options: [{my:"Penurunan daya tahan badan",en:"Decrease in body's defence"},{my:"Tekanan darah rendah",en:"Low blood pressure"},{my:"Diabetes melitus",en:"Diabetes mellitus"},{my:"Strok haba",en:"Heat stroke"}], answer:2, explanation:"BMI 29.9 is overweight/obese, increasing risk of diabetes mellitus." },
+  { my: "Apakah kepentingan Teknologi Hijau dalam kehidupan?", en: "What is the importance of Green Technology in daily life?", options: [{my:"Mengurangkan pengeluaran karbon",en:"Reducing carbon emissions"},{my:"Menjana tenaga stabil",en:"Generating stable energy"},{my:"Mengurangkan kos penyelenggaraan",en:"Reducing maintenance costs"},{my:"Meningkatkan kecekapan mesin",en:"Improving efficiency"}], answer:0, explanation:"Green Technology aims to reduce carbon emissions." },
+  { my: "Rajah 2 menunjukkan graf keluasan hutan. Apakah aplikasi Teknologi Hijau selepas tahun 2020?", en: "Diagram 2 shows forest area graph. What Green Technology after 2020?", diagram:'<img src="images/rajah3.png" style="max-width:100%">', options: [{my:"Menambah lesen penebangan",en:"Increasing logging permit"},{my:"Pembukaan kawasan pertanian",en:"New agriculture areas"},{my:"Penebangan untuk perabot",en:"Deforestation for furniture"},{my:"Penanaman semula pokok",en:"Replanting trees"}], answer:3, explanation:"Forest area increases after 2020, indicating replanting." },
+  { my: "Rajah 3 menunjukkan genotip induk kucing. Berapakah peratus anak kucing berbulu putih?", en: "Diagram 3 shows parent cats genotypes. What % of kittens are white?", diagram:'<img src="images/rajah4.png" style="max-width:100%">', options: [{my:"25%",en:"25%"},{my:"50%",en:"50%"},{my:"75%",en:"75%"},{my:"100%",en:"100%"}], answer:1, explanation:"Cross Hh x hh gives 50% black and 50% white." },
+  { my: "Antara yang berikut, yang manakah contoh mutasi kromosom?", en: "Which is example of chromosome mutation?", options: [{my:"Talasemia",en:"Thalassemia"},{my:"Buta warna",en:"Colour blindness"},{my:"Anemia sel sabit",en:"Sickle cell anaemia"},{my:"Sindrom Klinefelter",en:"Klinefelter syndrome"}], answer:3, explanation:"Klinefelter syndrome is a chromosomal mutation (XXY)." },
+  { my: "Rajah 4 menunjukkan sejenis haiwan. Pernyataan manakah betul?", en: "Diagram 4 shows an animal. Which statement is correct?", diagram:'<img src="images/rajah5.png" style="max-width:100%">', options: [{my:"Mempunyai rangka luar",en:"Has an exoskeleton"},{my:"Mempunyai rangka dalam",en:"Has an endoskeleton"},{my:"Rangka hidrostatik",en:"Hydrostatic skeleton"},{my:"Lapisan kitin",en:"Chitin layer"}], answer:1, explanation:"Snake is a vertebrate, has an endoskeleton." },
+  { my: "Remaja lelaki biasanya kelihatan lebih besar berbanding remaja perempuan. Mengapa?", en: "Male teenagers usually look bigger than female teenagers. Why?", diagram:'<img src="images/rajah6.png" style="max-width:100%">', options: [{my:"Kadar pertumbuhan lelaki perlahan",en:"Male growth slows down"},{my:"Perempuan membesar pesat",en:"Female grows rapidly"},{my:"Tubuh perempuan menyusut",en:"Female body shrinks"},{my:"Pertumbuhan perempuan berhenti pada 16-18 tahun",en:"Female growth stops at 16-18"}], answer:3, explanation:"Girls stop growing earlier than boys." },
+  { my: "Rajah 5 menunjukkan kelenjar endokrin. Apakah Z?", en: "Diagram 5 shows an endocrine gland. What is Z?", diagram:'<img src="images/rajah7.png" style="max-width:100%">', options: [{my:"Ovari",en:"Ovary"},{my:"Kelenjar tiroid",en:"Thyroid gland"},{my:"Kelenjar adrenal",en:"Adrenal gland"},{my:"Kelenjar pituitari",en:"Pituitary gland"}], answer:1, explanation:"The gland shown is the thyroid gland." },
+  { my: "Rajah 6 menunjukkan sejenis dadah. Apakah kesannya?", en: "Diagram 6 shows a drug. What is its effect?", diagram:'<img src="images/rajah8.png" style="max-width:100%">', options: [{my:"Pengguna menjadi khayal",en:"User becomes hallucinated"},{my:"Mengantuk dan kurang cemas",en:"Sleepy and less anxious"},{my:"Mendengar suara",en:"Hearing voices"},{my:"Sangat yakin",en:"Very confident"}], answer:1, explanation:"Barbiturates are depressants." },
+  { my: "Rajah 7 menunjukkan pembentukan ion natrium, Na+. Apakah penjelasan?", en: "Diagram 7 shows formation of Na+. What is the explanation?", diagram:'<img src="images/rajah9.png" style="max-width:100%">', options: [{my:"Logam menerima elektron",en:"Metal accepts electron"},{my:"Logam menderma elektron",en:"Metal donates electron"},{my:"Bukan logam menerima elektron",en:"Non-metal accepts electron"},{my:"Bukan logam menderma elektron",en:"Non-metal donates electron"}], answer:1, explanation:"Sodium is a metal; it donates one electron." },
+  { my: "Sebuah syarikat pembuatan kertas ingin menghasilkan kertas 70/80/120 gsm. Isotop manakah sesuai?", en: "A paper company wants to produce 70/80/120 gsm paper. Which isotope is suitable?", diagram:'<img src="images/rajah10.png" style="max-width:100%">', options: [{my:"Kobalt-60",en:"Cobalt-60"},{my:"Karbon-14",en:"Carbon-14"},{my:"Natrium-24",en:"Sodium-24"},{my:"Amerisium-241",en:"Americium-241"}], answer:1, explanation:"Carbon-14 emits beta particles, suitable for thin material thickness." },
+  { my: "Apakah logam tulen yang terdapat dalam keluli?", en: "What is the pure metal found in steel?", options: [{my:"Besi",en:"Iron"},{my:"Timah",en:"Tin"},{my:"Kuprum",en:"Copper"},{my:"Aluminium",en:"Aluminium"}], answer:0, explanation:"Steel is an alloy of iron and carbon." },
+  { my: "Radas pemanasan kimia mesti menahan suhu tinggi. Apakah jenis kaca paling sesuai?", en: "Apparatus for heating chemicals must withstand high temperature. Which glass is most suitable?", diagram:'<img src="images/rajah11.png" style="max-width:100%">', options: [{my:"Kaca plumbum",en:"Lead crystal glass"},{my:"Kaca soda kapur",en:"Soda-lime glass"},{my:"Kaca borosilikat",en:"Borosilicate glass"},{my:"Kaca silika terlukur",en:"Fused silica glass"}], answer:2, explanation:"Borosilicate glass has low thermal expansion." },
+  { my: "Antara yang berikut, yang manakah ciri perubatan tradisional?", en: "Which is a characteristic of traditional medicine?", options: [{my:"Menggunakan homeopati",en:"Uses homeopathy"},{my:"Diamalkan turun-temurun",en:"Practiced through generations"},{my:"Pembedahan kompleks",en:"Complex surgery"},{my:"Bergantung ubat sintetik",en:"Synthetic drugs"}], answer:1, explanation:"Traditional medicine is passed down through generations." },
+  { my: "Rajah 8 menunjukkan hirisan epal yang dibiarkan. Mengapa keadaan ini berlaku?", en: "Diagram 8 shows an apple slice left on the table. Why does this happen?", diagram:'<img src="images/rajah12.png" style="max-width:100%">', options: [{my:"Hirisan epal teroksida",en:"Apple slice oxidised"},{my:"Radikal bebas",en:"Free radicals"},{my:"Air menyejat",en:"Water evaporates"},{my:"Vitamin hilang",en:"Vitamins lost"}], answer:0, explanation:"Enzymatic browning occurs due to oxidation." },
+  { my: "Rajah 9 menunjukkan keratan pita detik. Apakah jenis gerakan?", en: "Diagram 9 shows a ticker tape. What is the type of motion?", diagram:'<img src="images/rajah13.png" style="max-width:100%">', options: [{my:"Halaju seragam",en:"Uniform velocity"},{my:"Pecutan seragam",en:"Uniform acceleration"},{my:"Halaju tidak seragam",en:"Non-uniform velocity"},{my:"Nyahpecutan seragam",en:"Uniform deceleration"}], answer:3, explanation:"Dots spacing decreases uniformly." },
+  { my: "Apakah faktor yang mempengaruhi masa objek jatuh ke penutup getah?", en: "What factor affects the falling time onto rubber stopper?", diagram:'<img src="images/rajah14.png" style="max-width:100%">', options: [{my:"Jenis objek",en:"Type of object"},{my:"Jisim objek",en:"Mass of object"},{my:"Daya graviti",en:"Gravitational force"},{my:"Rintangan udara",en:"Air resistance"}], answer:3, explanation:"Without air resistance, all objects fall at same rate." },
+  { my: "Langkah terbaik untuk mengawal ujian nuklear?", en: "Best step to control nuclear testing?", options: [{my:"Ujian di kawasan terpencil",en:"Remote areas"},{my:"Pantau radiasi",en:"Monitor radiation"},{my:"Peralatan perlindungan",en:"Protection equipment"},{my:"Perjanjian antarabangsa",en:"International agreements"}], answer:3, explanation:"International agreements are best globally." },
+  { my: "Mikroorganisma manakah yang memerlukan perumah?", en: "Which microorganism requires a host?", options: [{my:"Alga",en:"Algae"},{my:"Virus",en:"Virus"},{my:"Bakteria",en:"Bacteria"},{my:"Protozoa",en:"Protozoa"}], answer:1, explanation:"Viruses are obligate intracellular parasites." },
+  { my: "Rajah 10 menunjukkan label ubat. Mengapa pesakit perlu mematuhi arahan?", en: "Diagram 10 shows a medicine label. Why should patient follow the instruction?", diagram:'<img src="images/rajah15.png" style="max-width:100%">', options: [{my:"Elak pembaziran",en:"Avoid wasting"},{my:"Cepat sembuh",en:"Recover faster"},{my:"Elak kerintangan antibiotik",en:"Prevent antibiotic resistance"},{my:"Elak alahan",en:"Avoid allergy"}], answer:2, explanation:"Finishing antibiotics prevents resistance." },
+  { my: "Rajah 11 menunjukkan makanan diproses. Teknologi apakah yang sesuai?", en: "Diagram 11 shows processed food. Which technology is suitable?", diagram:'<img src="images/rajah16.png" style="max-width:100%">', options: [{my:"Pengetinan",en:"Canning"},{my:"Penyinaran",en:"Irradiation"},{my:"Pengeringan",en:"Drying"},{my:"Penyejukbekuan",en:"Freezing"}], answer:1, explanation:"Irradiation preserves freshness." },
+  { my: "Rajah 12 menunjukkan Monosodium glutamat. Apakah impaknya?", en: "Diagram 12 shows MSG. What is its impact?", diagram:'<img src="images/rajah17.png" style="max-width:100%">', options: [{my:"Penyakit jantung",en:"Heart disease"},{my:"Diabetes",en:"Diabetes"},{my:"Keracunan makanan",en:"Food poisoning"},{my:"Kecacatan fetus",en:"Foetal defects"}], answer:2, explanation:"Excessive MSG causes food poisoning-like symptoms." },
+  { my: "Rajah 13 menunjukkan penggunaan semula produk. Apakah konsepnya?", en: "Diagram 13 shows reuse of product. What is the concept?", diagram:'<img src="images/rajah18.png" style="max-width:100%">', options: [{my:"Kitar karbon",en:"Carbon cycle"},{my:"Jejak karbon",en:"Carbon footprint"},{my:"Singki karbon",en:"Carbon sink"},{my:"Tapak tangan karbon",en:"Carbon handprint"}], answer:3, explanation:"Reuse reduces carbon footprint." },
+  { my: "Sungai tercemar, gunakan bebola lumpur EM. Tindakan paling sesuai?", en: "Polluted river, use EM mud balls. Most suitable action?", options: [{my:"Lepaskan di kawasan aliran perlahan",en:"Release in slow-flowing areas"},{my:"Elektro-penggumpalan",en:"Electrocoagulation"},{my:"Perangkap sampah",en:"Trash trap"},{my:"Tambah klorin",en:"Add chlorine"}], answer:0, explanation:"EM mud balls work best in slow-flowing areas." },
+  { my: "Mengapakah mikroalga marin sesuai untuk Teknologi Emisi Negatif?", en: "Why are marine microalgae suitable for Negative Emission Technology?", options: [{my:"Meningkatkan suhu Bumi",en:"Increase Earth's temperature"},{my:"Sumber makanan",en:"Food source"},{my:"Menambah CO2",en:"Add CO2"},{my:"Mengurangkan CO2 atmosfera",en:"Reduce atmospheric CO2"}], answer:3, explanation:"Microalgae absorb CO2." },
+  { my: "Rajah 14 menunjukkan graf penghasilan gas. Apakah faktor graf I dan II?", en: "Diagram 14 shows gas production graph. What factor for graphs I and II?", diagram:'<img src="images/rajah19.png" style="max-width:100%">', options: [{my:"Saiz hasil",en:"Size of products"},{my:"Saiz bahan tindak balas",en:"Size of reactants"},{my:"Isipadu",en:"Volume"},{my:"Jisim",en:"Mass"}], answer:1, explanation:"Smaller size increases surface area, faster reaction." },
+  { my: "Apakah mangkin dalam Proses Haber?", en: "What is the catalyst in Haber Process?", options: [{my:"Besi",en:"Iron"},{my:"Platinum",en:"Platinum"},{my:"Argentum",en:"Silver"},{my:"Vanadium(V) oksida",en:"Vanadium(V) oxide"}], answer:0, explanation:"Haber process uses iron catalyst." },
+  { my: "Rajah 15 menunjukkan penyulingan hasil penapalan glukosa. Apakah ciri bahan W?", en: "Diagram 15 shows distillation of glucose fermentation. What is characteristic of W?", diagram:'<img src="images/rajah20.png" style="max-width:100%">', options: [{my:"Tidak berwarna",en:"Colourless"},{my:"Tidak berbau",en:"Odourless"},{my:"Nyalaan kuning",en:"Yellow flame"},{my:"Takat didih meningkat",en:"Boiling point increases"}], answer:0, explanation:"Ethanol is colourless." },
+  { my: "Antara yang berikut, yang manakah lemak tak tepu?", en: "Which is an unsaturated fat?", options: [{my:"Susu",en:"Milk"},{my:"Daging",en:"Meat"},{my:"Mentega",en:"Butter"},{my:"Kacang tanah",en:"Groundnut"}], answer:3, explanation:"Groundnut contains unsaturated fats." },
+  { my: "Apakah nama elektrod yang disambung ke terminal negatif?", en: "What is the electrode connected to negative terminal?", options: [{my:"Anod",en:"Anode"},{my:"Anion",en:"Anion"},{my:"Katod",en:"Cathode"},{my:"Kation",en:"Cation"}], answer:2, explanation:"Cathode is connected to negative terminal." },
+  { my: "Rajah 16 menunjukkan ujian gas zink + HCl. Apakah gas P?", en: "Diagram 16 shows gas test for zinc + HCl. What is gas P?", diagram:'<img src="images/rajah21.png" style="max-width:100%">', options: [{my:"Klorin",en:"Chlorine"},{my:"Bromin",en:"Bromine"},{my:"Oksigen",en:"Oxygen"},{my:"Hidrogen",en:"Hydrogen"}], answer:3, explanation:"Zinc + HCl produces hydrogen." },
+  { my: "Kanta manakah yang dikenali sebagai kanta pencapah?", en: "Which lens is known as a diverging lens?", options: [{my:'<img src="images/lensA.png" style="max-width:120px">',en:""},{my:'<img src="images/lensB.png" style="max-width:120px">',en:""},{my:'<img src="images/lensC.png" style="max-width:120px">',en:""},{my:'<img src="images/lensD.png" style="max-width:120px">',en:""}], answer:0, explanation:"Diverging lens is concave (A)." },
+  { my: "Kanta objek 40x, kanta mata 10x. Apakah kuasa pembesaran mikroskop?", en: "Objective 40x, eyepiece 10x. What is total magnification?", diagram:'<img src="images/rajah22.png" style="max-width:100%">', options: [{my:"400 kali",en:"400 times"},{my:"50 kali",en:"50 times"},{my:"30 kali",en:"30 times"},{my:"4 kali",en:"4 times"}], answer:0, explanation:"40 x 10 = 400." },
+  { my: "Apakah prinsip asas sistem hidraulik?", en: "What is the basic principle of hydraulic system?", options: [{my:"Prinsip Archimedes",en:"Archimedes principle"},{my:"Prinsip Pascal",en:"Pascal's principle"},{my:"Prinsip Boyle",en:"Boyle's principle"},{my:"Prinsip Newton",en:"Newton's principle"}], answer:1, explanation:"Hydraulic uses Pascal's principle." },
+  { my: "Rajah 17 menunjukkan sistem hidraulik. Berapakah daya pada omboh X untuk angkat 2000 N pada Y?", en: "Diagram 17 shows hydraulic system. Force on piston X to lift 2000 N on Y?", diagram:'<img src="images/rajah23.png" style="max-width:100%">', options: [{my:"0.5 N",en:"0.5 N"},{my:"2 N",en:"2 N"},{my:"200 N",en:"200 N"},{my:"2000 N",en:"2000 N"}], answer:2, explanation:"F1 = 2000 * 10/100 = 200 N." },
+  { my: "Rajah 18 menunjukkan sayap kapal terbang. Tekanan udara paling tinggi di mana?", en: "Diagram 18 shows airplane wing. Where is air pressure highest?", diagram:'<img src="images/rajah24.png" style="max-width:100%">', options: [{my:"A",en:"A"},{my:"B",en:"B"},{my:"C",en:"C"},{my:"D",en:"D"}], answer:1, explanation:"Air moves slower below the wing (B)." },
+  { my: "Rajah 19 menunjukkan orbit elips satelit. Kedudukan perigi di mana?", en: "Diagram 19 shows elliptical orbit. Which is perigee?", diagram:'<img src="images/rajah25.png" style="max-width:100%">', options: [{my:"A",en:"A"},{my:"B",en:"B"},{my:"C",en:"C"},{my:"D",en:"D"}], answer:0, explanation:"Perigee is closest to Earth (A)." },
+  { my: "Rajah 20 menunjukkan latitud 5.779966. Apakah kedudukan tempat itu?", en: "Diagram 20 shows latitude 5.779966. What is the position?", diagram:'<img src="images/rajah26.png" style="max-width:100%">', options: [{my:"Utara",en:"Northern"},{my:"Selatan",en:"Southern"},{my:"Timur",en:"West"},{my:"Barat",en:"East"}], answer:0, explanation:"Positive latitude = Northern hemisphere." }
+];
+
+/* ===== Keadaan global ===== */
+let questions = [];
+let currentQuestion = 0;
+let answers = [];
+let timeLeft = 60 * 60;
+let timerInterval = null;
+let currentStudent = { name:'', class:'' };
+let examActive = false;
+const EXAM_DURATION = 60 * 60;
+
+function fixImagePaths(html) {
+  if (!html) return html;
+  return html.replace(/src=(["'])images\//g, `src=$1${IMAGE_BASE}/`);
+}
+
+/* ===== Init ===== */
+window.onload = function() {
+  loadStudentsData();
+  loadQuestions();
+  initClassDropdown();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+};
+
+function loadStudentsData() {
+  const stored = localStorage.getItem('studentsData');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && Object.keys(parsed).length > 0) { studentsData = parsed; return; }
+    } catch(e) {}
+  }
+  studentsData = { ...defaultStudentsData };
+}
+
+function loadQuestions() {
+  const stored = localStorage.getItem('customQuestions');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length) { questions = parsed; return; }
+    } catch(e) {}
+  }
+  questions = defaultQuestions;
+}
+
+function initClassDropdown() {
+  const sel = document.getElementById('classSelect');
+  sel.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+  Object.keys(studentsData).forEach(cls => {
+    const opt = document.createElement('option');
+    opt.value = cls; opt.textContent = cls; sel.appendChild(opt);
+  });
+}
+
+function updateStudentList() {
+  const cls = document.getElementById('classSelect').value;
+  const sel = document.getElementById('studentSelect');
+  sel.innerHTML = '';
+  if (!cls) { sel.innerHTML = '<option value="">-- Sila pilih kelas dahulu --</option>'; return; }
+  const list = studentsData[cls] || [];
+  sel.innerHTML = '<option value="">-- Pilih Nama --</option>';
+  list.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name; sel.appendChild(opt);
+  });
+}
+
+/* ===== Mula ===== */
+function startExam() {
+  const cls = document.getElementById('classSelect').value;
+  const name = document.getElementById('studentSelect').value;
+  if (!cls) { alert('Sila pilih kelas'); return; }
+  if (!name) { alert('Sila pilih nama'); return; }
+  currentStudent = { name, class: cls };
+  answers = new Array(questions.length).fill(null);
+  currentQuestion = 0;
+  timeLeft = EXAM_DURATION;
+  examActive = true;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('examScreen').classList.remove('hidden');
+  document.getElementById('studentInfoDisplay').textContent = `${name} | ${cls}`;
+  document.getElementById('totalCount').textContent = questions.length;
+  renderQuestion(currentQuestion);
+  updateProgress();
+  startTimer();
+  document.getElementById('submitBtn').onclick = () => submitQuiz(false);
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('timer').textContent = formatTime(timeLeft);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('timer').textContent = formatTime(timeLeft);
+    if (timeLeft % 5 === 0) autoSave();
+    if (timeLeft <= 0) { clearInterval(timerInterval); alert('Masa tamat!'); submitQuiz(true); }
+  }, 1000);
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60).toString().padStart(2,'0');
+  const sec = (s%60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+function renderQuestion(index) {
+  const q = questions[index];
+  const area = document.getElementById('questionArea');
+  let optionsHtml = '';
+  q.options.forEach((opt, i) => {
+    const selected = answers[index] === i ? 'selected' : '';
+    optionsHtml += `<div class="option ${selected}" onclick="selectOption(${i})">
+      <div class="option-label">${String.fromCharCode(65+i)}</div>
+      <div class="option-text">
+        <div class="my">${fixImagePaths(opt.my) || ''}</div>
+        <div class="en">${opt.en || ''}</div>
+      </div></div>`;
+  });
+  const diagramHtml = q.diagram ? `<div class="diagram">${fixImagePaths(q.diagram)}</div>` : '';
+  area.innerHTML = `<div class="question-header">Soalan ${index+1} / ${questions.length}</div>
+    <div class="question-text"><div class="my">${q.my}</div><div class="en">${q.en}</div></div>
+    ${diagramHtml}<div class="options">${optionsHtml}</div>`;
+  renderNav();
+}
+
+function selectOption(optIndex) {
+  answers[currentQuestion] = optIndex;
+  autoSave();
+  renderQuestion(currentQuestion);
+  updateProgress();
+}
+
+function renderNav() {
+  const grid = document.getElementById('navGrid');
+  grid.innerHTML = '';
+  questions.forEach((_, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn';
+    if (i === currentQuestion) btn.classList.add('current');
+    else if (answers[i] !== null) btn.classList.add('answered');
+    else btn.classList.add('unanswered');
+    btn.textContent = i+1;
+    btn.onclick = () => { currentQuestion = i; renderQuestion(i); };
+    grid.appendChild(btn);
+  });
+}
+
+function updateProgress() {
+  const answered = answers.filter(a => a !== null).length;
+  document.getElementById('progressBar').style.width = (answered/questions.length*100)+'%';
+  document.getElementById('answeredCount').textContent = answered;
+}
+
+function autoSave() {
+  if (!examActive) return;
+  const key = 'examProgress_' + currentStudent.class + '_' + currentStudent.name;
+  localStorage.setItem(key, JSON.stringify({ answers, currentQuestion, timeLeft }));
+}
+
+function submitQuiz(auto = false) {
+  if (!auto && !confirm('Pasti mahu hantar kertas?')) return;
+  clearInterval(timerInterval);
+  examActive = false;
+  localStorage.removeItem('examProgress_' + currentStudent.class + '_' + currentStudent.name);
+  let correct = 0, wrong = 0, unanswered = 0;
+  const details = [];
+  questions.forEach((q, i) => {
+    const ua = answers[i];
+    let isCorrect = false;
+    if (ua === null) unanswered++;
+    else if (ua === q.answer) { correct++; isCorrect = true; }
+    else wrong++;
+    details.push({
+      no: i+1,
+      question: q.my.length > 80 ? q.my.slice(0,80)+'...' : q.my,
+      userAnswer: ua === null ? 'Tidak dijawab' : String.fromCharCode(65+ua),
+      correctAnswer: String.fromCharCode(65+q.answer),
+      isCorrect: isCorrect ? '✓' : '✗'
+    });
+  });
+  const total = questions.length;
+  const score = Math.round(correct/total*100);
+  const record = {
+    timestamp: Date.now(),
+    date: new Date().toLocaleString('ms-MY'),
+    name: currentStudent.name, class: currentStudent.class,
+    correct, wrong, unanswered, total, score, details
+  };
+  const records = JSON.parse(localStorage.getItem('examRecords') || '[]');
+  records.push(record);
+  localStorage.setItem('examRecords', JSON.stringify(records));
+  showResult(record);
+}
+
+function showResult(record) {
+  const summary = document.getElementById('resultSummary');
+  summary.innerHTML = `
+    <div class="result-card"><div class="number">${record.correct}</div><div class="label">Betul</div></div>
+    <div class="result-card"><div class="number">${record.wrong}</div><div class="label">Salah</div></div>
+    <div class="result-card"><div class="number">${record.unanswered}</div><div class="label">Tidak Dijawab</div></div>
+    <div class="result-card"><div class="number">${record.score}%</div><div class="label">Jumlah</div></div>`;
+  const review = document.getElementById('reviewList');
+  review.innerHTML = '<h3>Analisis Soalan</h3>';
+  questions.forEach((q, i) => {
+    const ua = answers[i];
+    const isCorrect = ua === q.answer;
+    const uaText = ua !== null ? `${String.fromCharCode(65+ua)}. ${q.options[ua].my.replace(/<[^>]+>/g,'').slice(0,60)}` : 'Tidak dijawab';
+    const caText = `${String.fromCharCode(65+q.answer)}. ${q.options[q.answer].my.replace(/<[^>]+>/g,'').slice(0,60)}`;
+    review.innerHTML += `<div class="review-item">
+      <div class="q">Soalan ${i+1}: ${q.my}</div>
+      <div class="ans ${isCorrect?'correct':'wrong'}">Jawapan anda: ${uaText} ${isCorrect?'✓':'✗'}</div>
+      <div class="ans correct">Jawapan betul: ${caText}</div>
+      <div class="explanation">${q.explanation || ''}</div>
+    </div>`;
+  });
+  document.getElementById('resultModal').classList.add('show');
+}
+
+/* ===== Panel Guru ===== */
+function showTeacherLogin() {
+  document.getElementById('teacherModal').classList.add('show');
+  document.getElementById('teacherLogin').classList.remove('hidden');
+  document.getElementById('teacherPanel').classList.add('hidden');
+  document.getElementById('teacherPass').value = '';
+}
+
+function teacherLogin() {
+  const pass = document.getElementById('teacherPass').value;
+  if (pass === '123456') {
+    document.getElementById('teacherLogin').classList.add('hidden');
+    document.getElementById('teacherPanel').classList.remove('hidden');
+    renderRecords();
+  } else alert('Kata laluan salah');
+}
+
+function renderRecords() {
+  const records = JSON.parse(localStorage.getItem('examRecords') || '[]');
+  const container = document.getElementById('recordsTable');
+  if (!records.length) { container.innerHTML = '<p style="color:#888;padding:20px;text-align:center;">Tiada rekod.</p>'; return; }
+  let html = '<table><tr><th>Tarikh</th><th>Kelas</th><th>Nama</th><th>Betul</th><th>Salah</th><th>Tidak Jawab</th><th>Markah</th><th>Butiran</th></tr>';
+  records.forEach((r, idx) => {
+    html += `<tr><td>${r.date}</td><td>${r.class}</td><td>${r.name}</td>
+      <td style="color:#2e7d32;font-weight:600;">${r.correct}</td>
+      <td style="color:#c62828;font-weight:600;">${r.wrong}</td>
+      <td>${r.unanswered}</td>
+      <td style="color:#ad1457;font-weight:700;">${r.score}%</td>
+      <td><button class="btn-secondary" style="padding:4px 10px;font-size:.8rem;" onclick="toggleDetail(${idx})">Buka</button></td></tr>
+      <tr class="hidden" id="detail_${idx}"><td colspan="8">
+        <table style="margin:0;background:#fff;"><tr><th>No.</th><th>Soalan</th><th>Jawapan</th><th>Betul</th><th>Keputusan</th></tr>
+        ${r.details.map(d => `<tr><td>${d.no}</td><td>${d.question}</td><td>${d.userAnswer}</td><td>${d.correctAnswer}</td>
+        <td style="color:${d.isCorrect==='✓'?'#2e7d32':'#c62828'};font-weight:600;">${d.isCorrect}</td></tr>`).join('')}
+        </table></td></tr>`;
+  });
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function toggleDetail(idx) {
+  const el = document.getElementById('detail_' + idx);
+  if (el) el.classList.toggle('hidden');
+}
+
+function exportExcel() {
+  const records = JSON.parse(localStorage.getItem('examRecords') || '[]');
+  if (!records.length) { alert('Tiada rekod'); return; }
+  const wb = XLSX.utils.book_new();
+  const overview = records.map(r => ({'Tarikh':r.date,'Kelas':r.class,'Nama':r.name,'Betul':r.correct,'Salah':r.wrong,'Tidak Dijawab':r.unanswered,'Jumlah':r.total,'Markah(%)':r.score}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(overview), 'Ringkasan');
+  const detailRows = [];
+  records.forEach(r => r.details.forEach(d => detailRows.push({'Tarikh':r.date,'Kelas':r.class,'Nama':r.name,'No.':d.no,'Soalan':d.question,'Jawapan Pelajar':d.userAnswer,'Jawapan Betul':d.correctAnswer,'Keputusan':d.isCorrect})));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'Analisis');
+  XLSX.writeFile(wb, 'Markah_Kuiz_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+function clearRecords() {
+  if (!confirm('Kosongkan semua rekod?')) return;
+  localStorage.removeItem('examRecords');
+  renderRecords();
+}
+
+function uploadQuestions(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data) || !data.length) throw new Error('Format salah');
+      localStorage.setItem('customQuestions', JSON.stringify(data));
+      questions = data;
+      alert('Bank soalan dimuat naik: ' + data.length + ' soalan');
+    } catch(err) { alert('Ralat: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetQuestions() {
+  if (!confirm('Pulihkan bank soalan asal?')) return;
+  localStorage.removeItem('customQuestions');
+  questions = defaultQuestions;
+  alert('Dipulihkan.');
+}
+
+function uploadStudents(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const newStudents = {};
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        const className = sheetName.trim();
+        if (!className) return;
+        rows.forEach((row, idx) => {
+          if (idx === 0) return;
+          const name = (row[0] || '').toString().trim();
+          if (name && name.toUpperCase() !== 'NAMA') {
+            if (!newStudents[className]) newStudents[className] = [];
+            newStudents[className].push(name);
+          }
+        });
+      });
+      if (!Object.keys(newStudents).length) throw new Error('Tiada data sah');
+      localStorage.setItem('studentsData', JSON.stringify(newStudents));
+      studentsData = newStudents;
+      initClassDropdown();
+      alert('Senarai nama dimuat naik.');
+    } catch(err) { alert('Ralat: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+</script>
+</body>
+</html>
